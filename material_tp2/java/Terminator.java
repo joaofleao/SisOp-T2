@@ -24,12 +24,37 @@ public class Terminator{
 		do{
 			System.out.println("Digite um dos comandos existentes ou digite help");
 			command = in.nextLine();
+
+			System.out.println("comando "+ getCommand(command));
+			System.out.println("extensao "+ getExt(command));
+
+
 			setOperation(command);
 		}while(!command.equals("exit"));
+
+
     }
+	public static String getCommand(String text) {
+		String command = "";
+		for (int i = 0; text.charAt(i)!=' '; i++) {
+			command = command + text.charAt(i);
+		}
+		return command;
+
+	}
+	public static String getExt(String text) {
+		String ext = "";
+		int i = 0;
+		for (i = 0; text.charAt(i)!=' '; i++) {}
+		for (i = i; i<text.length(); i++) {
+			ext = ext + text.charAt(i);
+		}
+		return ext;
+	}
 
 	public static void setOperation(String command){
-		switch(command){
+		
+		switch(getCommand(command)){
 			case "init": 
 				System.out.println("LUL");
 				break;
@@ -62,7 +87,8 @@ public class Terminator{
 				System.out.println("read [/caminho/arquivo] - ler o conteudo de um arquivo");
 				System.out.println("help - mostrar comandos disponíveis");
 				break;
-					
+			default: 
+				System.out.println("Comando nao reconhecido");
 		}
 	}
 

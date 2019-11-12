@@ -1,3 +1,4 @@
+import java.io.File;
 import java.util.Scanner;
 
 public class Terminator{
@@ -18,17 +19,10 @@ public class Terminator{
 
     public static void main(String args[]){
 		Scanner in = new Scanner(System.in);
-        createFat();
-        System.out.println("Fat criada");
 		String command = "";
 		do{
 			System.out.println("Digite um dos comandos existentes ou digite help");
 			command = in.nextLine();
-
-			System.out.println("comando "+ getCommand(command));
-			System.out.println("extensao "+ getExt(command));
-
-
 			setOperation(command);
 		}while(!command.equals("exit"));
 
@@ -44,7 +38,7 @@ public class Terminator{
 	}
 	public static String getExt(String text) {
 		String ext = "";
-		int i = 0;
+		int i;
 		for (i = 0; text.charAt(i)!=' '; i++) {}
 		for (i = i; i<text.length(); i++) {
 			ext = ext + text.charAt(i);
@@ -54,11 +48,13 @@ public class Terminator{
 
 	public static void setOperation(String command){
 		
-		switch(getCommand(command)){
+		switch(command){
 			case "init": 
+				createFat();
 				System.out.println("LUL");
 				break;
 			case "load": 
+				load();
 				break;
 			case "ls": 
 				break;
@@ -93,7 +89,15 @@ public class Terminator{
 	}
 
 
-
+	public static void load(){
+		final String dir = System.getProperty("user.dir");
+		File f = new File(dir + "/filesystem.dat");
+		short[] dirNew = FileSystem.readFat(f.getAbsolutePath());
+		for (int i = 0; i < blocks; i++) {
+			fat[i] = dirNew[i];
+		}
+		System.out.println("Load executado");
+	}
     public static void createFat(){
         /* initialize the FAT */
 		for (int i = 0; i < fat_blocks; i++)

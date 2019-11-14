@@ -61,6 +61,8 @@ public class Terminator{
 			case "mkdir": 
 				break;
 			case "create": 
+				create();
+				System.out.println("foi");
 				break;
 			case "unlink": 
 				break;
@@ -68,6 +70,9 @@ public class Terminator{
 				break;
 			case "append": 
 				break;
+			case "find": 
+				find("file1");
+			break;
 			case "read": 
 				break;
 			case "help": 
@@ -118,4 +123,45 @@ public class Terminator{
 		for (int i = root_block + 1; i < blocks; i++)
 			FileSystem.writeBlock("filesystem.dat", i, data_block);
     }
+
+	public static void create(){
+		DirEntry dir_entry = new DirEntry();
+		String name = "file1";
+		byte[] namebytes = name.getBytes();
+		for (int i = 0; i < namebytes.length; i++)
+			dir_entry.filename[i] = namebytes[i];
+		dir_entry.attributes = 0x01;
+		dir_entry.first_block = 1111;
+		dir_entry.size = 222;
+		FileSystem.writeDirEntry(root_block, 0, dir_entry);
+
+		name = "file2";
+		namebytes = name.getBytes();
+		for (int i = 0; i < namebytes.length; i++)
+			dir_entry.filename[i] = namebytes[i];
+		dir_entry.attributes = 0x01;
+		dir_entry.first_block = 2222;
+		dir_entry.size = 333;
+		FileSystem.writeDirEntry(root_block, 1, dir_entry);
+
+		name = "file3";
+		namebytes = name.getBytes();
+		for (int i = 0; i < namebytes.length; i++)
+			dir_entry.filename[i] = namebytes[i];
+		dir_entry.attributes = 0x01;
+		dir_entry.first_block = 3333;
+		dir_entry.size = 444;
+		FileSystem.writeDirEntry(root_block, 2, dir_entry);
+	}
+
+	public static void find(String s){
+		DirEntry dir_entry = new DirEntry();
+		/* list entries from the root directory */
+		for (int i = 0; i < dir_entries; i++) {
+			dir_entry = FileSystem.readDirEntry(root_block, i);
+			if(new String(dir_entry.filename).trim().equals(s)){
+				System.out.println("Achou " + new String(dir_entry.filename));
+			}
+		}
+	}
 }

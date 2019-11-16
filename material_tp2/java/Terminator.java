@@ -23,6 +23,8 @@ public class Terminator{
 		do{
 			System.out.println("Digite um dos comandos existentes ou digite help");
 			command = in.nextLine();
+			// System.out.println(getCommand(command));
+			// System.out.println(getExt(command));
 			setOperation(command);
 		}while(!command.equals("exit"));
 
@@ -30,7 +32,8 @@ public class Terminator{
     }
 	public static String getCommand(String text) {
 		String command = "";
-		for (int i = 0; text.charAt(i)!=' '; i++) {
+		for (int i = 0; i<text.length(); i++) {
+			if(text.charAt(i)==' ') break;
 			command = command + text.charAt(i);
 		}
 		return command;
@@ -38,18 +41,20 @@ public class Terminator{
 	}
 	public static String getExt(String text) {
 		String ext = "";
-		int i;
-		for (i = 0; text.charAt(i)!=' '; i++) {}
-		for (i = i; i<text.length(); i++) {
-			ext = ext + text.charAt(i);
+		for (int i = getCommand(text).length(); i < text.length(); i++) {
+			if (text.charAt(i)!=' ') ext = ext + text.charAt(i);
 		}
 		return ext;
 	}
 
 	public static void setOperation(String command){
 		
-		switch(command){
+		switch(getCommand(command)){
 			case "init": 
+				if (getExt(command)!=null){ 
+					System.out.println("Comando invalido");
+					break;
+				}
 				createFat();
 				System.out.println("LUL");
 				break;
@@ -61,8 +66,6 @@ public class Terminator{
 			case "mkdir": 
 				break;
 			case "create": 
-				create();
-				System.out.println("foi");
 				break;
 			case "unlink": 
 				break;
@@ -70,12 +73,16 @@ public class Terminator{
 				break;
 			case "append": 
 				break;
-			case "find": 
+				case "find": 
 				find("file1");
 			break;
 			case "read": 
 				break;
 			case "help": 
+				if (getExt(command)!=null){ 
+					System.out.println("Comando invalido");
+					break;
+				}
 				System.out.println("Comandos Disponíveis: ");
 				System.out.println("init - inicializar o sistema de arquivos com as estruturas de dados, semelhante a formatar o sistema de arquivos virtual");
 				System.out.println("load - carregar o sistema de arquivos do disco");
@@ -122,9 +129,9 @@ public class Terminator{
 		/* write the remaining data blocks to disk */
 		for (int i = root_block + 1; i < blocks; i++)
 			FileSystem.writeBlock("filesystem.dat", i, data_block);
-    }
-
-	public static void create(){
+	}
+	
+		public static void create(){
 		DirEntry dir_entry = new DirEntry();
 		String name = "file1";
 		byte[] namebytes = name.getBytes();

@@ -1,5 +1,15 @@
 import java.io.File;
 import java.util.Scanner;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.DataOutputStream;
+import java.io.DataInputStream;
+import java.io.FilterInputStream;
 
 public class Terminator{
     static int block_size = 1024;
@@ -12,13 +22,6 @@ public class Terminator{
 	public static boolean isFolder = true;
 
 	
-
-	/* FAT data structure */
-	final static short[] fat = new short[blocks];
-	/* data block */
-	final static byte[] data_block = new byte[block_size];
-
-
 
     public static void main(String args[]){
 		Scanner in = new Scanner(System.in);
@@ -121,14 +124,14 @@ public class Terminator{
 		fat[root_block] = 0x7fff;
 		for (int i = root_block + 1; i < blocks; i++)
 			fat[i] = 0;
-		FileSystem.writeFat("filesystem.dat", fat);
+		writeFat("filesystem.dat", fat);
 		for (int i = 0; i < block_size; i++)
 			data_block[i] = 0;
 
-		FileSystem.writeBlock("filesystem.dat", root_block, data_block);
+		writeBlock("filesystem.dat", root_block, data_block);
 
 		for (int i = root_block + 1; i < blocks; i++)
-			FileSystem.writeBlock("filesystem.dat", i, data_block);
+			writeBlock("filesystem.dat", i, data_block);
 	}
 
 	/**
@@ -137,7 +140,7 @@ public class Terminator{
 	public static void load(){
 		final String dir = System.getProperty("user.dir");
 		File f = new File(dir + "/filesystem.dat");
-		short[] dirNew = FileSystem.readFat(f.getAbsolutePath());
+		short[] dirNew = readFat(f.getAbsolutePath());
 		for (int i = 0; i < blocks; i++) {
 			fat[i] = dirNew[i];
 		}
@@ -165,13 +168,19 @@ public class Terminator{
 				dir_entry.filename[i] = namebytes[i];
 			dir_entry.attributes = 0x01;
 			dir_entry.first_block = (short)blockEmpty;
-			dir_entry.size = 222; //
+			dir_entry.size = 0; //
+
+			
+			for (int i = 0; i < block_size; i++) {
+				data_block[i] = 0;
+			}
+
+			writeDirEntry(blockPrev, entry, dir_entry);
+			
 
 
-			FileSystem.writeDirEntry(blockPrev, entry, dir_entry);
-
-			fat[blockEmpty] = 0x22; //
-			FileSystem.writeFat("filesystem.dat", fat);
+			fat[blockEmpty] = dir_entry.first_block; //
+			writeFat("filesystem.dat", fat);
 		}else System.err.println("Anterior é arquivo, não é possivel criar um arquivo dentro de outro.");
 
 	}
@@ -190,12 +199,12 @@ public class Terminator{
 
         System.err.println("Conteúdo: ");
         for (int i = 0; i < 32; i++) {
-			if(FileSystem.readDirEntry(block, i).attributes == 1){
-            	System.out.println(i+1 + "\t" + new String(FileSystem.readDirEntry(block, i).filename) + "\t" + "arquivo" );
-			}else if(FileSystem.readDirEntry(block, i).attributes == 2){
-				System.out.println(i+1 + "\t" + new String(FileSystem.readDirEntry(block, i).filename) + "\t" + "pasta" );
+			if(readDirEntry(block, i).attributes == 1){
+            	System.out.println(i+1 + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "arquivo" );
+			}else if(readDirEntry(block, i).attributes == 2){
+				System.out.println(i+1 + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "pasta" );
 			}else{
-				System.out.println(i+1 + "\t" + new String(FileSystem.readDirEntry(block, i).filename) + "\t" + "vazio" );
+				System.out.println(i+1 + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "vazio" );
 			}
         }
         
@@ -212,7 +221,8 @@ public class Terminator{
         int blockEmpty = getFirstEmptyBlock();
         int entry = getEntry(blockPrev);
 
-        String[] file = path.split("/");
+		String[] file = path.split("/");
+		
 
         System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + blockPrev + " blockEmpty: " +  blockEmpty);
         DirEntry dir_entry = new DirEntry();
@@ -222,20 +232,26 @@ public class Terminator{
 			dir_entry.filename[i] = namebytes[i];
 		dir_entry.attributes = 0x02;
 		dir_entry.first_block = (short)blockEmpty;
-		dir_entry.size = 222; //
-        FileSystem.writeDirEntry(blockPrev, entry, dir_entry);
+		dir_entry.size = 0; //
 
-        fat[blockEmpty] = 0x22; //
-        FileSystem.writeFat("filesystem.dat", fat);
 
+		for (int i = 0; i < block_size; i++) {
+			data_block[i] = 0;
+		}
+
+        writeDirEntry(blockPrev, entry, dir_entry);
+
+        fat[blockEmpty] = 0x7fff; //
+		writeFat("filesystem.dat", fat);
+		
     }
-
+	//corrigir unlink
 	private static void unlink(String path){
-		int blockPrev = getBlock(path, true);
+        int blockPrev = getBlock(path, true);
         int blockEmpty = getFirstEmptyBlock();
         int entry = getEntry(blockPrev);
 
-        String[] file = path.split("/");
+		String[] file = path.split("/");
 
         System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + blockPrev + " blockEmpty: " +  blockEmpty);
         DirEntry dir_entry = new DirEntry();
@@ -246,12 +262,18 @@ public class Terminator{
 		dir_entry.attributes = 0;
 		dir_entry.first_block = 0;
 		dir_entry.size = 0; //
-        FileSystem.writeDirEntry(blockPrev, entry, dir_entry);
+
+
+		for (int i = 0; i < block_size; i++) {
+			data_block[i] = 0;
+		}
+
+        writeDirEntry(blockPrev, entry-1, dir_entry);
 
         fat[blockEmpty] = 0; //
-        FileSystem.writeFat("filesystem.dat", fat);
-			
+		writeFat("filesystem.dat", fat);
 	}
+	
 
 	private static int getBlock(String s, boolean cond) {
         String[] path = s.split("/");
@@ -261,11 +283,11 @@ public class Terminator{
         if(cond == true) size = path.length -1;
         int block = root_block;
         DirEntry entry;
-        entry = FileSystem.readDirEntry(block, 0);
+        entry = readDirEntry(block, 0);
 
         for (int i = 1; i < size; i++) {
             for (int j = 0; j < 32; j++) {
-                entry = FileSystem.readDirEntry(block, j);
+                entry = readDirEntry(block, j);
 
                 if( new String(entry.filename).trim().equals(path[i])){
 					block = entry.first_block;
@@ -295,12 +317,133 @@ public class Terminator{
     private static int getEntry(int block){
         int entry = -1;
         for (int i = 0; i < 32; i++) {
-            String file = new String(FileSystem.readDirEntry(block, i).filename).trim();
+            String file = new String(readDirEntry(block, i).filename).trim();
            if(file.equals("")){
                entry = i;
                return entry;
            }
         }
         return entry;
-    }
+	}
+	
+
+
+
+	//metodos professor
+	
+	/* FAT data structure */
+	final static short[] fat = new short[blocks];
+	/* data block */
+	final static byte[] data_block = new byte[block_size];
+
+	public static byte[] readBlock(String file, int block) {
+		byte[] record = new byte[block_size];
+		try {
+			RandomAccessFile fileStore = new RandomAccessFile(file, "rw");
+			fileStore.seek(block * block_size);
+			fileStore.read(record, 0, block_size);
+			fileStore.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return record;
+	}
+
+	/* writes a data block to disk */
+	public static void writeBlock(String file, int block, byte[] record) {
+		try {
+			RandomAccessFile fileStore = new RandomAccessFile(file, "rw");
+			fileStore.seek(block * block_size);
+			fileStore.write(record, 0, block_size);
+			fileStore.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/* reads the FAT from disk */
+	public static short[] readFat(String file) {
+		short[] record = new short[blocks];
+		try {
+			RandomAccessFile fileStore = new RandomAccessFile(file, "rw");
+			fileStore.seek(0);
+			for (int i = 0; i < blocks; i++)
+				record[i] = fileStore.readShort();
+			fileStore.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return record;
+	}
+
+	/* writes the FAT to disk */
+	public static void writeFat(String file, short[] fat) {
+		try {
+			RandomAccessFile fileStore = new RandomAccessFile(file, "rw");
+			fileStore.seek(0);
+			for (int i = 0; i < blocks; i++)
+				fileStore.writeShort(fat[i]);
+			fileStore.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/* reads a directory entry from a directory */
+	public static DirEntry readDirEntry(int block, int entry) {
+		byte[] bytes = readBlock("filesystem.dat", block);
+		ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+		DataInputStream in = new DataInputStream(bis);
+		DirEntry dir_entry = new DirEntry();
+
+		try {
+			in.skipBytes(entry * dir_entry_size);
+
+			for (int i = 0; i < 25; i++)
+				dir_entry.filename[i] = in.readByte();
+			dir_entry.attributes = in.readByte();
+			dir_entry.first_block = in.readShort();
+			dir_entry.size = in.readInt();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return dir_entry;
+	}
+
+	/* writes a directory entry in a directory */
+	public static void writeDirEntry(int block, int entry, DirEntry dir_entry) {
+		byte[] bytes = readBlock("filesystem.dat", block);
+		ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+		DataInputStream in = new DataInputStream(bis);
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(bos);
+
+		try {
+			for (int i = 0; i < entry * dir_entry_size; i++)
+				out.writeByte(in.readByte());
+
+			for (int i = 0; i < dir_entry_size; i++)
+				in.readByte();
+
+			for (int i = 0; i < 25; i++)
+				out.writeByte(dir_entry.filename[i]);
+			out.writeByte(dir_entry.attributes);
+			out.writeShort(dir_entry.first_block);
+			out.writeInt(dir_entry.size);
+
+			for (int i = entry + 1; i < entry * dir_entry_size; i++)
+				out.writeByte(in.readByte());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		byte[] bytes2 = bos.toByteArray();
+		for (int i = 0; i < bytes2.length; i++)
+			data_block[i] = bytes2[i];
+		writeBlock("filesystem.dat", block, data_block);
+	}
+
 }

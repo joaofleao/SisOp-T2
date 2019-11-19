@@ -316,7 +316,10 @@ public class Terminator {
 		int currentBlock = getBlock(path, false);
         int blockEmpty = getFirstEmptyBlock();
 		int entry = getEntry(previousBlock);
-		
+		if(path.equals("root")){
+			System.err.println("Não é possível deletar a root");
+			return;
+		}
 		if(isFolder){
 			for (int i = 0; i < 32; i++) {
 				String file = new String(readDirEntry(currentBlock, i).filename).trim();

@@ -33,77 +33,99 @@ public class Terminator{
 			System.out.println("Digite um dos comandos existentes ou digite help");
 			command = in.nextLine();
 			setOperation(command);
-		}while(!command.equals("exit"));
+	
+		} while(!command.equals("exit"));
 
 
-    }
-	public static String getCommand(String text) {
-		String command = "";
-		for (int i = 0; text.charAt(i)!=' '; i++) {
-			command = command + text.charAt(i);
+	}
+	public static String print(String[] vetor) {
+		String txt = "";
+		for (int i = 0; i < vetor.length; i++) {
+			txt = txt + "." + vetor[i];			
 		}
+		return txt;
+	}
+	
+	public static String[] getCommand(String text) {
+		String[] command = text.split(" ");
 		return command;
-
 	}
-	public static String getExt(String text) {
-		String ext = "";
-		int i;
-		for (i = 0; text.charAt(i)!=' '; i++) {}
-			for (i = i; i<text.length(); i++) {
-				ext = ext + text.charAt(i);
-		}
-		return ext;
-	}
-
 	public static void setOperation(String command){
-		boolean another = false;
-		String c;
-		for (int i = 0; i<command.length(); i++) {
-			if( command.charAt(i) == ' '){
-				another = true;
-			}
-		}
-		if(another){
-			c = getCommand(command);
-		}else c = command;
-		switch(c){
+		switch(getCommand(command)[0]){
 			case "init": 
-				System.out.println();
+				if (getCommand(command).length!=1) {
+					System.out.println("Commando incorreto");
+					break;
+				}
 				initFat();
 				System.out.println("FAT inicializada");
 				break;
 			case "load": 
+				if (getCommand(command).length!=1) {
+					System.out.println("Commando incorreto");
+					break;
+				}	
 				load();
 				break;
 			case "ls":
-				String path = getExt(command);
+				if (getCommand(command).length!=2) {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				String path = getCommand(command)[1];
 				ls(path); 
 				break;
 			case "mkdir":
-				String pathMk = getExt(command);
+				if (getCommand(command).length!=2) {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				String pathMk = getCommand(command)[1];
 				mkdir(pathMk);
 				break;
-			case "create": 
-				String pathCr = getExt(command);
+			case "create":
+				if (getCommand(command).length!=2) {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				String pathCr = getCommand(command)[1];
 				create(pathCr);
 				break;
-			case "unlink": 
-				String pathUn = getExt(command);
+			case "unlink":
+				if (getCommand(command).length!=2) {
+					System.out.println("Commando incorreto");
+					break;
+				} 
+				String pathUn = getCommand(command)[1];
 				unlink(pathUn);
 				break;
 			case "write":
-				String[] coWrite = command.split(" ");
-				write(coWrite[2], coWrite[1]);
+				if (getCommand(command).length!=3) {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				write(getCommand(command)[2], getCommand(command)[1]);
 				break;
 			case "append": 
-				String[] apWrite = command.split(" ");
-				append(apWrite[2], apWrite[1]);
+				if (getCommand(command).length!=3) {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				append(getCommand(command)[2], getCommand(command)[1]);
 				break;
 			case "read":
-				String pathRe = getExt(command);
+				if (getCommand(command).length!=2) {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				String pathRe = getCommand(command)[1];
 				read(pathRe); 
 				break;
 			case "help": 
+				if (getCommand(command).length!=1) {
+					System.out.println("Commando incorreto");
+					break;
+				}
 				System.out.println("Comandos Disponíveis: ");
 				System.out.println("init - inicializar o sistema de arquivos com as estruturas de dados, semelhante a formatar o sistema de arquivos virtual");
 				System.out.println("load - carregar o sistema de arquivos do disco");
@@ -118,6 +140,10 @@ public class Terminator{
 				System.out.println("help - mostrar comandos disponíveis");
 				break;
 			case "exit":
+				if (getCommand(command).length!=1) {
+					System.out.println("Commando incorreto");
+					break;
+				}
 				break;
 			default: 
 				System.out.println("Comando nao reconhecido");

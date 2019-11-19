@@ -1,6 +1,7 @@
 import java.io.File;
 import java.util.Arrays;
 import java.util.Scanner;
+import java.util.Stack;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -20,6 +21,7 @@ public class Terminator {
 	static int root_block = fat_blocks;
 	static int dir_entry_size = 32;
 	static int dir_entries = block_size / dir_entry_size;
+	static Stack<String> folders = new Stack<String>();	
 	public static boolean isFolder = true;
 	public static boolean isFile = false;
 	public static byte[] blockAux;
@@ -27,10 +29,11 @@ public class Terminator {
 	public static void main(String args[]) {
 		Scanner in = new Scanner(System.in);
 		String command = "";
+		folders.push("root");
 		do {
-			System.out.println("Digite um dos comandos existentes ou digite help");
-			System.out.println("Para passar caminhos para o terminal, comece com root/");
+			System.out.println("TERMINATOR    " + getFullPath());
 			command = in.nextLine();
+			clear();
 			setOperation(command);
 
 		} while (!command.equals("exit"));
@@ -50,9 +53,56 @@ public class Terminator {
 		return command;
 	}
 
+	public static String getFullPath() {
+		String path = "";
+		for (int i = 0; i < folders.size(); i++) {
+			path = path + folders.get(i) + "/";
+		}
+		return path;
+	}
+	public static void cd(String txt) {
+		String[] path = txt.split("/");
+		if (path[0].equals("..")) {
+			if(folders.peek().equals("root")) return;
+			folders.pop();
+			return;
+		} 
+		String validate = getFullPath()+txt;
+		int currentBlock = getBlock(validate, false);
+		if(currentBlock == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+		}	
+		
+		if (txt.length()==0) {
+			folders.clear();
+			folders.push("root");
+		}
+		else {
+			for (int i = 0; i < path.length; i++) {
+				folders.push(path[i]);
+			}
+		}
+	}
+
 	public static void setOperation(String command) {
 		switch (getCommand(command)[0]) {
+			case "cd":
+				
+				if (getCommand(command).length==1) {
+					cd("");
+				}
+				else if (getCommand(command).length==2) {
+					String pathCD = getCommand(command)[1];
+					cd(pathCD);
+				}
+				else {
+					System.out.println("Commando incorreto");
+					break;
+				}
+				break;
 			case "init":
+
 				if (getCommand(command).length != 1) {
 					System.out.println("Commando incorreto");
 					break;
@@ -61,69 +111,86 @@ public class Terminator {
 				System.out.println("FAT inicializada");
 				break;
 			case "load":
+
 				if (getCommand(command).length != 1) {
 					System.out.println("Commando incorreto");
 					break;
 				}
 				load();
 				break;
+
 			case "ls":
-				if (getCommand(command).length != 2) {
+	
+				if (getCommand(command).length > 2) {
 					System.out.println("Commando incorreto");
 					break;
 				}
-				String path = getCommand(command)[1];
-				ls(path);
+				String path = "";
+				if (getCommand(command).length==2) {
+					path = getCommand(command)[1];
+				}
+				System.out.println(getFullPath()+ path);
+				ls(getFullPath()+ path);
 				break;
+
 			case "mkdir":
-				if (getCommand(command).length != 2) {
+
+				if (getCommand(command).length > 2) {
 					System.out.println("Commando incorreto");
 					break;
 				}
-				String pathMk = getCommand(command)[1];
-				mkdir(pathMk);
+				path = "";
+				if (getCommand(command).length==2) {
+					path = getCommand(command)[1];
+				}
+				System.out.println(getFullPath()+ path);
+				mkdir(getFullPath()+ path);
 				break;
+
 			case "create":
 				if (getCommand(command).length != 2) {
 					System.out.println("Commando incorreto");
 					break;
 				}
-				String pathCr = getCommand(command)[1];
-				create(pathCr);
+				path = getCommand(command)[1];
+				create(getFullPath()+ path);
 				break;
 			case "unlink":
 				if (getCommand(command).length != 2) {
 					System.out.println("Commando incorreto");
 					break;
 				}
-				String pathUn = getCommand(command)[1];
-				unlink(pathUn);
+				path = getCommand(command)[1];
+				unlink(getFullPath()+ path);
 				break;
 			case "write":
-				if (getCommand(command).length != 3) {
-					System.out.println("Commando incorreto");
-					break;
+				String content = "";
+				for (int i = 1; i < getCommand(command).length-1; i++) {
+					content = content + getCommand(command)[i]+ " ";
 				}
-				write(getCommand(command)[2], getCommand(command)[1]);
+				write(getFullPath() + getCommand(command)[getCommand(command).length-1], content);
 				break;
 			case "append":
-				if (getCommand(command).length != 3) {
-					System.out.println("Commando incorreto");
-					break;
-				}
-				append(getCommand(command)[2], getCommand(command)[1]);
+				content = "";
+				for (int i = 1; i < getCommand(command).length-1; i++) {
+					content = content + getCommand(command)[i]+ " ";
+				}	
+				append(getFullPath() + getCommand(command)[getCommand(command).length-1], content);
 				break;
 			case "read":
 				if (getCommand(command).length != 2) {
 					System.out.println("Commando incorreto");
 					break;
 				}
-				String pathRe = getCommand(command)[1];
-				read(pathRe);
+				path = getCommand(command)[1];
+				
+				System.out.println(getFullPath()+ path);
+				read(getFullPath()+ path);
 				break;
+
 			case "clear":
-				System.out.print("\033[H\033[2J");  
-				System.out.flush();  
+				clear();
+
 				break;
 			case "help": 
 				if (getCommand(command).length!=1) {
@@ -141,6 +208,7 @@ public class Terminator {
 				System.out.println("append ${string} [/caminho/arquivo] - anexar dados em um arquivo");
 				System.out.println("read [/caminho/arquivo] - ler o conteudo de um arquivo");
 				System.out.println("exit - SAIR");
+				System.out.println("clear - limpar a tela");
 				System.out.println("help - mostrar comandos disponíveis");
 				break;
 			case "exit":
@@ -152,6 +220,10 @@ public class Terminator {
 			default: 
 				System.out.println("Comando nao reconhecido");
 		}
+	}
+	public static void clear() {
+		System.out.print("\033[H\033[2J");  
+		System.out.flush();  
 	}
 
 	/**
@@ -226,9 +298,14 @@ public class Terminator {
 	 */
 	private static void mkdir(String path){
 		int previousBlock = getBlock(path, true);
+		int currentBlock = getBlock(path, false);
 
         if(previousBlock == -1){
             System.err.println("Caminho incorreto! ");
+            return;
+		}
+		else if(currentBlock != -1){
+            System.err.println("Já existe uma pasta com esse nome! ");
             return;
         }
 		
@@ -239,7 +316,7 @@ public class Terminator {
 			String[] file = path.split("/");
 			
 	
-			System.out.println("Path: " + path + " entry: " + entry + " previousBlock: " + previousBlock + " blockEmpty: " +  blockEmpty);
+			//System.out.println("Path: " + path + " entry: " + entry + " previousBlock: " + previousBlock + " blockEmpty: " +  blockEmpty);
 			DirEntry dir_entry = new DirEntry();
 			String name = file[file.length-1];
 			byte[] namebytes = name.getBytes();
@@ -258,6 +335,7 @@ public class Terminator {
 	
 			fat[blockEmpty] = 0x7fff; //
 			writeFat("filesystem.dat", fat);
+			System.out.println("Pasta criada");
 			
 		}else System.err.println("Anterior é um arquivo. Não é possível criar uma pasta dentro de um arquivo");
     }
@@ -268,20 +346,30 @@ public class Terminator {
 	 * @param path path do arquivo
 	 */
 	public static void create(String path){
+		int previousBlock = getBlock(path, true);
+		int currentBlock = getBlock(path, false);
+
+        if(previousBlock == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+		}
+		else if(currentBlock != -1){
+            System.err.println("Já existe um arquivo com esse nome! ");
+            return;
+        }
 		//validar se a string é vazia
 		if(path.isEmpty()) System.err.println("Por favor, informe um caminho");
 
 
 
 		isFolder=true;
-        int previousBlock = getBlock(path, true);
 		if(isFolder == true){
 			int blockEmpty = getFirstEmptyBlock();
 			int entry = getEntry(previousBlock);
 			
 			String[] file = path.split("/");
 
-			System.out.println("Path: " + path + " entry: " + entry + " previousBlock: " + previousBlock + " blockEmpty: " +  blockEmpty);
+			//System.out.println("Path: " + path + " entry: " + entry + " previousBlock: " + previousBlock + " blockEmpty: " +  blockEmpty);
 			DirEntry dir_entry = new DirEntry();
 			String name = file[file.length-1];
 			byte[] namebytes = name.getBytes();
@@ -301,6 +389,7 @@ public class Terminator {
 
 			fat[blockEmpty] = 0x7fff; //
 			writeFat("filesystem.dat", fat);
+			System.out.println("Arquivo criado");
 		}else System.err.println("Anterior é arquivo, não é possivel criar um arquivo dentro de outro.");
 
 	}
@@ -316,6 +405,10 @@ public class Terminator {
 		int currentBlock = getBlock(path, false);
         int blockEmpty = getFirstEmptyBlock();
 		int entry = getEntry(previousBlock);
+		if (path.equals("root")) {
+			System.err.println("Não é possível deletar a root");
+			return;
+		}
 		
 		if(isFolder){
 			for (int i = 0; i < 32; i++) {

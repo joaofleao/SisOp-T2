@@ -1,4 +1,5 @@
 import java.io.File;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -20,6 +21,8 @@ public class Terminator{
 	static int dir_entry_size = 32;
 	static int dir_entries = block_size / dir_entry_size;
 	public static boolean isFolder = true;
+	public static boolean isFile = false;
+
 
 	
 
@@ -46,8 +49,8 @@ public class Terminator{
 		String ext = "";
 		int i;
 		for (i = 0; text.charAt(i)!=' '; i++) {}
-		for (i = i; i<text.length(); i++) {
-			ext = ext + text.charAt(i);
+			for (i = i; i<text.length(); i++) {
+				ext = ext + text.charAt(i);
 		}
 		return ext;
 	}
@@ -88,11 +91,17 @@ public class Terminator{
 				String pathUn = getExt(command);
 				unlink(pathUn);
 				break;
-			case "right": 
+			case "write":
+				String[] coWrite = command.split(" ");
+				write(coWrite[2], coWrite[1]);
 				break;
 			case "append": 
+				String[] apWrite = command.split(" ");
+				append(apWrite[2], apWrite[1]);
 				break;
-			case "read": 
+			case "read":
+				String pathRe = getExt(command);
+				read(pathRe); 
 				break;
 			case "help": 
 				System.out.println("Comandos Disponíveis: ");
@@ -153,6 +162,7 @@ public class Terminator{
 	 * @param s path do arquivo
 	 */
 	public static void create(String path){
+		isFolder=true;
         int blockPrev = getBlock(path, true);
 		if(isFolder == true){
 			int blockEmpty = getFirstEmptyBlock();
@@ -190,7 +200,8 @@ public class Terminator{
 	 * lista o contéudo do diretório passado por parâmetro
 	 */
     private static void ls(String s){
-        int block = getBlock(s, false);
+		int block = getBlock(s, false);
+		
 
         if(block == -1){
             System.err.println("Caminho incorreto! ");
@@ -200,11 +211,13 @@ public class Terminator{
         System.err.println("Conteúdo: ");
         for (int i = 0; i < 32; i++) {
 			if(readDirEntry(block, i).attributes == 1){
-            	System.out.println(i+1 + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "arquivo" );
+            	System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "arquivo" );
 			}else if(readDirEntry(block, i).attributes == 2){
-				System.out.println(i+1 + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "pasta" );
+				System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "pasta" );
+			}else if(readDirEntry(block, i).attributes == 0){
+				System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "vazio" );
 			}else{
-				System.out.println(i+1 + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "vazio" );
+				System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "conteudo do arquivo" );
 			}
         }
         
@@ -217,34 +230,44 @@ public class Terminator{
 	 * @param s path do diretório
 	 */
 	private static void mkdir(String path){
-        int blockPrev = getBlock(path, true);
-        int blockEmpty = getFirstEmptyBlock();
-        int entry = getEntry(blockPrev);
+		int blockPrev = getBlock(path, true);
 
-		String[] file = path.split("/");
+        if(blockPrev == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+        }
 		
-
-        System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + blockPrev + " blockEmpty: " +  blockEmpty);
-        DirEntry dir_entry = new DirEntry();
-		String name = file[file.length-1];
-		byte[] namebytes = name.getBytes();
-		for (int i = 0; i < namebytes.length; i++)
-			dir_entry.filename[i] = namebytes[i];
-		dir_entry.attributes = 0x02;
-		dir_entry.first_block = (short)blockEmpty;
-		dir_entry.size = 0; //
-
-
-		for (int i = 0; i < block_size; i++) {
-			data_block[i] = 0;
-		}
-
-        writeDirEntry(blockPrev, entry, dir_entry);
-
-        fat[blockEmpty] = 0x7fff; //
-		writeFat("filesystem.dat", fat);
-		
+		if(isFile == false){
+			int blockEmpty = getFirstEmptyBlock();
+			int entry = getEntry(blockPrev);
+	
+			String[] file = path.split("/");
+			
+	
+			System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + blockPrev + " blockEmpty: " +  blockEmpty);
+			DirEntry dir_entry = new DirEntry();
+			String name = file[file.length-1];
+			byte[] namebytes = name.getBytes();
+			for (int i = 0; i < namebytes.length; i++)
+				dir_entry.filename[i] = namebytes[i];
+			dir_entry.attributes = 0x02;
+			dir_entry.first_block = (short)blockEmpty;
+			dir_entry.size = 0; //
+	
+	
+			for (int i = 0; i < block_size; i++) {
+				data_block[i] = 0;
+			}
+	
+			writeDirEntry(blockPrev, entry, dir_entry);
+	
+			fat[blockEmpty] = 0x7fff; //
+			writeFat("filesystem.dat", fat);
+			
+		}else System.err.println("Anterior é um arquivo. Não é possível criar uma pasta dentro de um arquivo");
     }
+	
+	
 	//corrigir unlink
 	private static void unlink(String path){
         int blockPrev = getBlock(path, true);
@@ -274,7 +297,168 @@ public class Terminator{
 		writeFat("filesystem.dat", fat);
 	}
 	
+	//PROBLEMAS: quando write sobrescreve com um valor > 25 ele remove o segundo bloco
+	private static void write(String path, String content){
+		int currentBlock = getBlock(path, false);
+		int blockEmpty = getFirstEmptyBlock();
+		// int entry = getEntry(currentBlock);
 
+		if(currentBlock == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+		}
+
+		
+
+        DirEntry dir_entry = new DirEntry();
+		String name = content;
+		byte[] namebytes = name.getBytes();
+		byte[] aux = new byte[25];
+		int cont = 1;
+		int j = 0;
+		int y = 0;
+		int test=0;
+		if(namebytes.length>=25){
+			for (int i = 1; i <= namebytes.length; i++) {
+				aux[j] = namebytes[y];
+				j++;
+				y++;
+				if(i == cont * 25 || i == namebytes.length){
+					System.out.println(Arrays.toString(aux));
+					dir_entry.filename = aux;
+					dir_entry.attributes = 3;
+					dir_entry.first_block = (short)blockEmpty;
+					dir_entry.size = 222; //
+			
+					for (int l = 0; l < block_size; l++) {
+						data_block[l] = 0;
+					}
+
+					writeDirEntry(currentBlock, test, dir_entry);
+					test++;
+					fat[blockEmpty] = 0x7fff; //
+					writeFat("filesystem.dat", fat);					
+
+					cont++; 
+					j = 0;
+					for (int k = 0; k < aux.length; k++) {
+						aux[k] = 0;
+					}
+					System.out.println(Arrays.toString(aux));
+				}
+			}
+		}else{
+			for (int i = 0; i < namebytes.length; i++){
+				dir_entry.filename[i] = namebytes[i];
+			}
+
+			dir_entry.attributes = 3;
+			dir_entry.first_block = (short)blockEmpty;
+			dir_entry.size = 222; //
+	
+			for (int i = 0; i < block_size; i++) {
+				data_block[i] = 0;
+			}
+
+			writeDirEntry(currentBlock, 0, dir_entry);
+	
+			fat[blockEmpty] = 0x7fff; //
+			writeFat("filesystem.dat", fat);					
+
+		}
+
+
+	}
+	
+	//PROBLEMAS: quando existia um texto maior que 25 o append começa a partir do 25, portanto sobrescreve os outros
+	//bloco e deixa o do 25 p tras
+	public static void append(String path, String content){
+		int currentBlock = getBlock(path, false);
+		int blockEmpty = getFirstEmptyBlock();
+		int entry = getEntry(currentBlock);
+
+		if(currentBlock == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+		}
+
+        DirEntry dir_entry = new DirEntry();
+		String name = content;
+		byte[] namebytes = name.getBytes();
+		byte[] aux = new byte[25];
+		int cont = 1;
+		int j = 0;
+		int y = 0;
+		if(namebytes.length>=25){
+			for (int i = 1; i <= namebytes.length; i++) {
+				aux[j] = namebytes[y];
+				j++;
+				y++;
+				if(i == cont * 25 || i == namebytes.length){
+					System.out.println(Arrays.toString(aux));
+					dir_entry.filename = aux;
+					dir_entry.attributes = 3;
+					dir_entry.first_block = (short)blockEmpty;
+					dir_entry.size = 222; //
+			
+					for (int l = 0; l < block_size; l++) {
+						data_block[l] = 0;
+					}
+
+					writeDirEntry(currentBlock, entry, dir_entry);
+					fat[blockEmpty] = 0x7fff; //
+					writeFat("filesystem.dat", fat);					
+
+					cont++; 
+					j = 0;
+					for (int k = 0; k < aux.length; k++) {
+						aux[k] = 0;
+					}
+					System.out.println(Arrays.toString(aux));
+				}
+			}
+		}else{
+			for (int i = 0; i < namebytes.length; i++){
+				dir_entry.filename[i] = namebytes[i];
+			}
+
+			dir_entry.attributes = 3;
+			dir_entry.first_block = (short)blockEmpty;
+			dir_entry.size = 222; //
+			
+			for (int i = 0; i < block_size; i++) {
+				data_block[i] = 0;
+			}
+
+			writeDirEntry(currentBlock, entry, dir_entry);
+	
+			fat[blockEmpty] = 0x7fff; //
+			writeFat("filesystem.dat", fat);					
+
+		}
+	}
+
+	public static void read(String s){
+		int block = getBlock(s, false);
+		
+
+        if(block == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+        }
+
+        System.out.println("Conteúdo: ");
+        for (int i = 0; i < 32; i++) {
+			if(readDirEntry(block, i).attributes == 3){
+				System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "conteudo do arquivo" );
+			}
+        }
+	}
+	
+	
+	//Utils
+	
+	
 	private static int getBlock(String s, boolean cond) {
         String[] path = s.split("/");
         
@@ -293,7 +477,11 @@ public class Terminator{
 					block = entry.first_block;
 					if(entry.attributes == 2){
 						isFolder = true;
-					}else isFolder = false;
+						isFile = false;
+					}else{
+						isFolder = false;
+						isFile = true;
+					} 
                     break;
                 }
                 if(j == 31) return -1;
@@ -326,6 +514,10 @@ public class Terminator{
         return entry;
 	}
 	
+
+
+
+
 
 
 

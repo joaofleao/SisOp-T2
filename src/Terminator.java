@@ -191,6 +191,7 @@ public class Terminator {
 	 * lista o contéudo do diretório passado por parâmetro
 	 */
     private static void ls(String path){
+		isFile = false;
 		int block = getBlock(path, false);
 
         if(block == -1){
@@ -377,6 +378,7 @@ public class Terminator {
 		int j = 0;
 		int y = 0;
 		int test=0;
+			
 		if(namebytes.length>=25){
 			for (int i = 1; i <= namebytes.length; i++) {
 				aux[j] = namebytes[y];

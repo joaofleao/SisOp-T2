@@ -265,7 +265,7 @@ public class Terminator {
     private static void ls(String path){
 		isFile = false;
 		int block = getBlock(path, false);
-
+		int cont = 0;
         if(block == -1){
             System.err.println("Caminho incorreto! \n");
             return;
@@ -274,19 +274,18 @@ public class Terminator {
 		if(isFile){
 			System.err.println("ls não é permitido em um arquivo \n");
 		}else{
-			System.out.println("Conteúdo do diretório: ");
+			System.out.println("Conteúdo do diretório: \n");
 			for (int i = 0; i < 32; i++) {
 				if(readDirEntry(block, i).attributes == 1){
 					System.out.println("bloco: " + (i+1) + "\t" + " nome: " + new String(readDirEntry(block, i).filename) + "\t\t tipo: " + "arquivo" );
+					cont++;
 				}else if(readDirEntry(block, i).attributes == 2){
 					System.out.println("bloco: " + (i+1) + "\t" + " nome: " + new String(readDirEntry(block, i).filename) + "\t\t tipo: " + "pasta" );
-				}else if(readDirEntry(block, i).attributes == 0){
-					System.out.println("bloco: " + (i+1) + "\t" + " nome: " +  new String(readDirEntry(block, i).filename) + "\t\t tipo: " + "vazio" );
-				}else{
-					System.out.println("bloco: " + (i+1) + "\t" + " nome: " +  new String(readDirEntry(block, i).filename) + "\t\t tipo: " + "conteudo do arquivo" );
+					cont++;
 				}
 			}
 		}
+		if(cont == 0) System.out.println("\nPasta vazia\n");
         
 	}
 
@@ -297,6 +296,7 @@ public class Terminator {
 	 * @param s path do diretório
 	 */
 	private static void mkdir(String path){
+		isFile = false;
 		int previousBlock = getBlock(path, true);
 		int currentBlock = getBlock(path, false);
 
@@ -335,7 +335,7 @@ public class Terminator {
 	
 			fat[blockEmpty] = 0x7fff; //
 			writeFat("filesystem.dat", fat);
-			System.out.println("Pasta criada");
+			System.out.println("\nPasta '" + file[file.length-1]  + "' criada\n");
 			
 		}else System.err.println("Anterior é um arquivo. Não é possível criar uma pasta dentro de um arquivo");
     }
@@ -347,6 +347,7 @@ public class Terminator {
 	 */
 	public static void create(String path){
 		int previousBlock = getBlock(path, true);
+
 		int currentBlock = getBlock(path, false);
 
         if(previousBlock == -1){
@@ -402,9 +403,17 @@ public class Terminator {
 	 */ 
 	private static void unlink(String path){
 		int previousBlock = getBlock(path, true);
+
+		if(previousBlock == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+		}
+
 		int currentBlock = getBlock(path, false);
         int blockEmpty = getFirstEmptyBlock();
-		int entry = getEntry(previousBlock);
+		int entry = 0;
+		DirEntry dir_entry = new DirEntry();
+		System.out.println(currentBlock + " bloco atual");
 		if(path.equals("root")){
 			System.err.println("Não é possível deletar a root");
 			return;
@@ -413,16 +422,24 @@ public class Terminator {
 			for (int i = 0; i < 32; i++) {
 				String file = new String(readDirEntry(currentBlock, i).filename).trim();
 				if(!file.equals("")){
-					System.err.println("Esta pasta contem arquivos. Remova-os");
+					System.err.println("Esta pasta contem conteúdo. Remova-os");
 					return;
 				}
 			}
 		}
-
 		String[] file = path.split("/");
 
+		for (int i = 0; i < 32; i++) {
+            dir_entry = FileSystem.readDirEntry(previousBlock, i);
+            String fileName = new String(dir_entry.filename).trim();
+
+            if (fileName.equals(file[file.length - 1])) {
+                entry = i;
+                break;
+            }
+        }
+
         System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + previousBlock + " blockEmpty: " +  blockEmpty);
-        DirEntry dir_entry = new DirEntry();
 		String name = file[file.length-1];
 		byte[] namebytes = name.getBytes();
 		for (int i = 0; i < namebytes.length; i++)
@@ -431,17 +448,25 @@ public class Terminator {
 		dir_entry.first_block = 0;
 		dir_entry.size = 0; //
 
+		//limpar fat e bloco
+		byte[] blockByte = new byte[1024];
+        short pos = fat[currentBlock];
+        fat[currentBlock] = 0x0000;
+        FileSystem.writeBlock("filesystem.dat", currentBlock, blockByte);
 
-		for (int i = 0; i < block_size; i++) {
-			data_block[i] = 0;
-		}
+        while(pos != 0x7fff){
+            short aux = fat[pos];
+            fat[pos] = 0x0000;
+            FileSystem.writeBlock("filesystem.dat", pos, blockByte);
+            pos = aux;
+        }
+
+        writeFat("filesystem.dat", fat);
 
 		blockAux = readBlock("filesystem.dat", previousBlock);
 
-        writeDirEntry(previousBlock, entry-1, dir_entry, blockAux);
+        writeDirEntry(previousBlock, entry, dir_entry, blockAux);
 
-        fat[blockEmpty-1] = 0; //
-		writeFat("filesystem.dat", fat);
 	}
 	
 	//PROBLEMAS: quando write sobrescreve com um valor > 25 ele remove o segundo bloco
@@ -453,22 +478,39 @@ public class Terminator {
 	private static void write(String path, String content){
 		int currentBlock = getBlock(path, false);
 		int blockEmpty = getFirstEmptyBlock();
-
-		if(currentBlock == -1){
-            System.err.println("Caminho incorreto! ");
-            return;
-		}
-
-        DirEntry dir_entry = new DirEntry();
 		String name = content;
 		byte[] namebytes = name.getBytes();
+		DirEntry dir_entry = new DirEntry();
 		byte[] aux = new byte[25];
 		int cont = 1;
 		int j = 0;
 		int y = 0;
 		int test=0;
 		int m=0;
-		int p=1;
+
+		if(currentBlock == -1){
+            System.err.println("Caminho incorreto! ");
+            return;
+		}
+
+		
+		//limpa fat e bloco
+		System.out.println(currentBlock);
+		byte[] blockByte = new byte[1024];
+		short pos = fat[currentBlock];
+		//arrumr fat
+		writeBlock("filesystem.dat", currentBlock, blockByte);
+		System.out.println("currentBlock " + currentBlock);
+
+		while(pos != 0x7fff){
+			short aux1 = fat[pos];
+			fat[pos] = 0x0000;
+			writeBlock("filesystem.dat", pos, blockByte);
+			pos = aux1;
+		}
+		writeFat("filesystem.dat", fat);
+
+
 			
 		if(namebytes.length>=25){
 			for (int i = 1; i <= namebytes.length; i++) {
@@ -487,16 +529,17 @@ public class Terminator {
 					writeDirEntry(currentBlock, test, dir_entry, blockAux);
 					test++;
 					//corrigir na fat
-					// if(aux[aux.length-1] == 0){
-					// 	System.out.println("entrou 0");
-					// 	fat[blockEmpty] = 8;
-					// }else{
-					// 	System.out.println("entrou teste");
-					// 	System.out.println(blockEmpty+1);
-					// 	fat[blockEmpty] = (short)(blockEmpty + p); //
-					// 	p++;
-					// }
-					writeFat("filesystem.dat", fat);					
+					if(aux[aux.length-1] == 0){
+						// System.out.println("entrou 0");
+						fat[blockEmpty] = 0x7fff;
+						writeFat("filesystem.dat", fat);					
+					}else{
+						// System.out.println("entrou teste");
+						fat[blockEmpty] = (short)(blockEmpty + 1); //
+						// fat[blockEmpty] = 0x7fff; //
+						writeFat("filesystem.dat", fat);
+						blockEmpty++;
+					}
 					m++;
 					cont++; 
 					j = 0;
@@ -518,13 +561,12 @@ public class Terminator {
 			dir_entry.attributes = 3;
 			dir_entry.first_block = (short)blockEmpty;
 			dir_entry.size = 222; //
-	
 			
 			blockAux = readBlock("filesystem.dat", currentBlock);
 
 			writeDirEntry(currentBlock, 0, dir_entry, blockAux);
 	
-			fat[blockEmpty] = dir_entry.first_block; //
+			fat[blockEmpty] = 0x7fff; //
 			writeFat("filesystem.dat", fat);					
 
 		}

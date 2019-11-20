@@ -107,8 +107,10 @@ public class Terminator {
 					System.out.println("Commando incorreto");
 					break;
 				}
+				System.out.println("Inicializando...");
 				init();
-				System.out.println("FAT inicializada");
+				clear();
+				System.out.println("Sistema de arquivos inicializado");
 				break;
 			case "load":
 
@@ -162,6 +164,7 @@ public class Terminator {
 				}
 				path = getCommand(command)[1];
 				unlink(getFullPath()+ path);
+				System.out.println("Item deletado");
 				break;
 			case "write":
 				String content = "";
@@ -169,6 +172,7 @@ public class Terminator {
 					content = content + getCommand(command)[i]+ " ";
 				}
 				write(getFullPath() + getCommand(command)[getCommand(command).length-1], content);
+				System.out.println("Arquivo escrito");
 				break;
 			case "append":
 				content = "";
@@ -176,6 +180,7 @@ public class Terminator {
 					content = content + getCommand(command)[i]+ " ";
 				}	
 				append(getFullPath() + getCommand(command)[getCommand(command).length-1], content);
+				System.out.println("Texto adicionado com sucesso");
 				break;
 			case "read":
 				if (getCommand(command).length != 2) {
@@ -317,16 +322,7 @@ public class Terminator {
 			
 	
 			//System.out.println("Path: " + path + " entry: " + entry + " previousBlock: " + previousBlock + " blockEmpty: " +  blockEmpty);
-			DirEntry dir_entry = new DirEntry();
-			String name = file[file.length-1];
-			byte[] namebytes = name.getBytes();
-			for (int i = 0; i < namebytes.length; i++)
-				dir_entry.filename[i] = namebytes[i];
-			dir_entry.attributes = 0x02;
-			dir_entry.first_block = (short)blockEmpty;
-			dir_entry.size = 0; //
-	
-	
+			DirEntry dir_entry = defineEntry(file, 0x02, blockEmpty, 0);
 
 			
 			blockAux = readBlock("filesystem.dat", previousBlock);
@@ -335,35 +331,30 @@ public class Terminator {
 	
 			fat[blockEmpty] = 0x7fff; //
 			writeFat("filesystem.dat", fat);
-			System.out.println("\nPasta '" + file[file.length-1]  + "' criada\n");
+			System.out.println("Pasta '" + file[file.length-1]  + "' criada\n");
 			
 		}else System.err.println("Anterior é um arquivo. Não é possível criar uma pasta dentro de um arquivo");
-    }
-	
+	}
+
 	/**
 	 * cria um arquivo passando seu caminho por parâmetro
 	 *
 	 * @param path path do arquivo
 	 */
 	public static void create(String path){
+		isFolder=true;
 		int previousBlock = getBlock(path, true);
-
 		int currentBlock = getBlock(path, false);
 
         if(previousBlock == -1){
             System.err.println("Caminho incorreto! ");
             return;
 		}
-		else if(currentBlock != -1){
+		if(currentBlock != -1){
             System.err.println("Já existe um arquivo com esse nome! ");
             return;
         }
-		//validar se a string é vazia
-		if(path.isEmpty()) System.err.println("Por favor, informe um caminho");
 
-
-
-		isFolder=true;
 		if(isFolder == true){
 			int blockEmpty = getFirstEmptyBlock();
 			int entry = getEntry(previousBlock);
@@ -371,16 +362,7 @@ public class Terminator {
 			String[] file = path.split("/");
 
 			//System.out.println("Path: " + path + " entry: " + entry + " previousBlock: " + previousBlock + " blockEmpty: " +  blockEmpty);
-			DirEntry dir_entry = new DirEntry();
-			String name = file[file.length-1];
-			byte[] namebytes = name.getBytes();
-			for (int i = 0; i < namebytes.length; i++)
-				dir_entry.filename[i] = namebytes[i];
-			dir_entry.attributes = 0x01;
-			dir_entry.first_block = (short)blockEmpty;
-			dir_entry.size = 0; //
-
-			
+			DirEntry dir_entry = defineEntry(file, 0x01, blockEmpty, 0);
 	
 			blockAux = readBlock("filesystem.dat", previousBlock);
 
@@ -390,7 +372,7 @@ public class Terminator {
 
 			fat[blockEmpty] = 0x7fff; //
 			writeFat("filesystem.dat", fat);
-			System.out.println("Arquivo criado");
+			System.out.println("Arquivo '" + file[file.length-1] + "' criado\n");
 		}else System.err.println("Anterior é arquivo, não é possivel criar um arquivo dentro de outro.");
 
 	}
@@ -412,7 +394,6 @@ public class Terminator {
 		int currentBlock = getBlock(path, false);
         int blockEmpty = getFirstEmptyBlock();
 		int entry = 0;
-		DirEntry dir_entry = new DirEntry();
 		System.out.println(currentBlock + " bloco atual");
 		if(path.equals("root")){
 			System.err.println("Não é possível deletar a root");
@@ -428,25 +409,21 @@ public class Terminator {
 			}
 		}
 		String[] file = path.split("/");
-
+		DirEntry getEntry = new DirEntry();
 		for (int i = 0; i < 32; i++) {
-            dir_entry = FileSystem.readDirEntry(previousBlock, i);
-            String fileName = new String(dir_entry.filename).trim();
-
+			getEntry = FileSystem.readDirEntry(previousBlock, i);
+            String fileName = new String(getEntry.filename).trim();
+			
             if (fileName.equals(file[file.length - 1])) {
-                entry = i;
+				entry = i;
                 break;
             }
         }
-
-        System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + previousBlock + " blockEmpty: " +  blockEmpty);
-		String name = file[file.length-1];
-		byte[] namebytes = name.getBytes();
-		for (int i = 0; i < namebytes.length; i++)
-			dir_entry.filename[i] = 0;
-		dir_entry.attributes = 0;
-		dir_entry.first_block = 0;
-		dir_entry.size = 0; //
+		
+		// System.out.println("Path: " + path + " entry: " + entry + " blockPrev: " + previousBlock + " blockEmpty: " +  blockEmpty);
+		
+		String[] name = {""}; 
+		DirEntry dir_entry = defineEntry(name, 0, 0, 0);
 
 		//limpar fat e bloco
 		byte[] blockByte = new byte[1024];
@@ -519,10 +496,11 @@ public class Terminator {
 				y++;
 				if(i == cont * 25 || i == namebytes.length){
 					System.out.println(Arrays.toString(aux));
+					
 					dir_entry.filename = aux;
 					dir_entry.attributes = 3;
 					dir_entry.first_block = (short)blockEmpty;
-					dir_entry.size = 222; //
+					dir_entry.size = aux.length;//
 			
 					blockAux = readBlock("filesystem.dat", currentBlock);
 
@@ -560,7 +538,7 @@ public class Terminator {
 
 			dir_entry.attributes = 3;
 			dir_entry.first_block = (short)blockEmpty;
-			dir_entry.size = 222; //
+			dir_entry.size = namebytes.length; //
 			
 			blockAux = readBlock("filesystem.dat", currentBlock);
 
@@ -609,11 +587,21 @@ public class Terminator {
 					dir_entry.filename = aux;
 					dir_entry.attributes = 3;
 					dir_entry.first_block = (short)blockEmpty;
-					dir_entry.size = 222; //
+					dir_entry.size = aux.length; //
 			
 					
 					blockAux = readBlock("filesystem.dat", currentBlock);
-
+					if(aux[aux.length-1] == 0){
+						// System.out.println("entrou 0");
+						fat[blockEmpty] = 0x7fff;
+						writeFat("filesystem.dat", fat);					
+					}else{
+						// System.out.println("entrou teste");
+						fat[blockEmpty] = (short)(blockEmpty + 1); //
+						// fat[blockEmpty] = 0x7fff; //
+						writeFat("filesystem.dat", fat);
+						blockEmpty++;
+					}
 					writeDirEntry(currentBlock, entry, dir_entry, blockAux);
 					fat[blockEmpty] = 0x7fff; //
 					writeFat("filesystem.dat", fat);					
@@ -633,7 +621,7 @@ public class Terminator {
 
 			dir_entry.attributes = 3;
 			dir_entry.first_block = (short)blockEmpty;
-			dir_entry.size = 222; //
+			dir_entry.size = namebytes.length; //
 			
 		
 
@@ -663,7 +651,7 @@ public class Terminator {
         System.out.println("Conteúdo: ");
         for (int i = 0; i < 32; i++) {
 			if(readDirEntry(block, i).attributes == 3){
-				System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename) + "\t" + "conteudo do arquivo" );
+				System.out.println("bloco: " + (i+1) + "\t" + new String(readDirEntry(block, i).filename));
 			}
         }
 	}
@@ -676,7 +664,22 @@ public class Terminator {
 
 
 	//Utils
+
+	public static DirEntry defineEntry(String[] fileName, int attr, int firstBlock, int size){
+		DirEntry dir_entry = new DirEntry();
+		String name = fileName[fileName.length-1];
+		byte[] namebytes = name.getBytes();
+		for (int i = 0; i < namebytes.length; i++)
+			dir_entry.filename[i] = namebytes[i];
+		dir_entry.attributes = (byte)attr;
+		dir_entry.first_block = (short)firstBlock;
+		dir_entry.size = size; //
+
+		return dir_entry;
+	}
 	
+
+
 	/**
 	 * 
 	 * @param pathFromCommand caminho do arquivo ou pasta

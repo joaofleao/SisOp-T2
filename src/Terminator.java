@@ -440,7 +440,7 @@ public class Terminator {
 
         writeDirEntry(previousBlock, entry-1, dir_entry, blockAux);
 
-        fat[blockEmpty] = 0; //
+        fat[blockEmpty-1] = 0; //
 		writeFat("filesystem.dat", fat);
 	}
 	
@@ -453,14 +453,11 @@ public class Terminator {
 	private static void write(String path, String content){
 		int currentBlock = getBlock(path, false);
 		int blockEmpty = getFirstEmptyBlock();
-		// int entry = getEntry(currentBlock);
 
 		if(currentBlock == -1){
             System.err.println("Caminho incorreto! ");
             return;
 		}
-
-		
 
         DirEntry dir_entry = new DirEntry();
 		String name = content;
@@ -470,6 +467,8 @@ public class Terminator {
 		int j = 0;
 		int y = 0;
 		int test=0;
+		int m=0;
+		int p=1;
 			
 		if(namebytes.length>=25){
 			for (int i = 1; i <= namebytes.length; i++) {
@@ -487,15 +486,28 @@ public class Terminator {
 
 					writeDirEntry(currentBlock, test, dir_entry, blockAux);
 					test++;
-					fat[blockEmpty] = 0x7fff; //
+					//corrigir na fat
+					// if(aux[aux.length-1] == 0){
+					// 	System.out.println("entrou 0");
+					// 	fat[blockEmpty] = 8;
+					// }else{
+					// 	System.out.println("entrou teste");
+					// 	System.out.println(blockEmpty+1);
+					// 	fat[blockEmpty] = (short)(blockEmpty + p); //
+					// 	p++;
+					// }
 					writeFat("filesystem.dat", fat);					
-
+					m++;
 					cont++; 
 					j = 0;
 					for (int k = 0; k < aux.length; k++) {
 						aux[k] = 0;
 					}
-					System.out.println(Arrays.toString(aux));
+					for (int n = 0; n < m; n++) {
+						
+					}
+
+					//System.out.println(Arrays.toString(aux));
 				}
 			}
 		}else{
@@ -512,7 +524,7 @@ public class Terminator {
 
 			writeDirEntry(currentBlock, 0, dir_entry, blockAux);
 	
-			fat[blockEmpty] = 0x7fff; //
+			fat[blockEmpty] = dir_entry.first_block; //
 			writeFat("filesystem.dat", fat);					
 
 		}

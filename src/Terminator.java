@@ -184,7 +184,6 @@ public class Terminator {
 					content = content + getCommand(command)[i]+ " ";
 				}
 				write(getFullPath() + getCommand(command)[getCommand(command).length-1], content);
-				System.out.println("Arquivo escrito");
 				break;
 			case "append":
 				content = "";
@@ -400,7 +399,6 @@ public class Terminator {
 		}
 
 		int currentBlock = getBlock(path, false);
-        int blockEmpty = getFirstEmptyBlock();
 		int entry = 0;
 		if(path.equals("root")){
 			System.err.println(RED + "Erro: " + RESET + "Não é possível deletar a root");
@@ -427,7 +425,6 @@ public class Terminator {
             }
         }
 		
-		String[] name = {""}; 
 		DirEntry dir_entry = defineEntry(file, 0, 0, 0);
 
 		//limpar fat e bloco
@@ -441,7 +438,23 @@ public class Terminator {
             fat[pos] = 0x0000;
             FileSystem.writeBlock("filesystem.dat", pos, blockByte);
             pos = aux;
-        }
+		}
+		String name = file[file.length-1];
+		byte[] namebytes = name.getBytes();
+		int plus = 1;
+		byte[] hasMore = readBlock("filesystem.dat", currentBlock);
+		if(hasMore[hasMore.length-1]==0) {
+			for (int i = 0; i < hasMore.length+1; i++) {
+				if(i == plus * 1024 || i == namebytes.length){
+					writeBlock("filesystem.dat", currentBlock+plus, blockByte);
+					hasMore =  readBlock("filesystem.dat", currentBlock+plus);
+				}
+			}
+			writeFat("filesystem.dat", fat);
+		}
+
+
+
 
         writeFat("filesystem.dat", fat);
 
@@ -489,7 +502,6 @@ public class Terminator {
 		int plus = 1;
 		byte[] hasMore = readBlock("filesystem.dat", currentBlock);
 		if(hasMore[hasMore.length-1]==0) {
-			System.out.println("ENTROU");
 			for (int i = 0; i < hasMore.length+1; i++) {
 				if(i == plus * 1024 || i == namebytes.length){
 					writeBlock("filesystem.dat", currentBlock+plus, blockByte);
@@ -539,6 +551,8 @@ public class Terminator {
 			writeFat("filesystem.dat", fat);					
 
 		}
+		System.out.println("Arquivo escrito");
+
 	}
 	/**
 	 * 

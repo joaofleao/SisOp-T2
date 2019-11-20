@@ -225,6 +225,7 @@ public class Terminator {
 				System.out.println("read [/caminho/arquivo] - ler o conteudo de um arquivo");
 				System.out.println("exit - SAIR");
 				System.out.println("clear - limpar a tela");
+				System.out.println("cd - navegar entre pastas, existe cd .. tambem");
 				System.out.println("help - mostrar comandos disponíveis");
 				break;
 			case "exit":
